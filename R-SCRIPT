@@ -1,0 +1,133 @@
+#LIBRARIES TO INSTALL#
+install.packages('caret')
+install.packages('gains')
+
+
+
+
+rm(list=ls())
+bank.df=read.csv("C:/Users/Ifeanyi Uzowuru/Downloads/UniversalBank (2).csv")
+head(bank.df)
+str(bank.df)
+names(bank.df)
+View(bank.df)
+summary(bank.df)
+bank0.df=bank.df[,-c(1,5)]
+pairs(bank0.df[,c(1,2,3,5,7)])
+bank0.df$Education=factor(
+bank0.df$Education,levels=c(1,2,3),
+labels=c("Undergrad","Graduate",
+         "Advanced/Professional"))
+set.seed(2)
+train.index=sample(
+        c(1:dim(bank0.df)[1]),
+                  dim(bank0.df)[1]*0.6)
+train.df=bank0.df[train.index,]
+valid.df=bank0.df[-train.index,]
+logit.reg=glm(Personal.Loan~.,
+        data=train.df,
+        family=binomial(link="logit"))
+options(scipen=999)
+summary(logit.reg)
+acf(residuals(logit.reg))
+acf(residuals(logit.reg)^2)
+logit1.reg=glm(Personal.Loan~.,
+        data=train.df[,-c(1,2,7,9)],
+        family="binomial")
+summary(logit1.reg)
+acf(residuals(logit1.reg))
+acf(residuals(logit1.reg)^2)
+anova(logit1.reg,logit.reg,
+      test="Chisq")
+
+library(forecast)
+logit.reg.pred=predict(logit.reg,
+                  valid.df[,-8],
+                  type="response")
+head(logit.reg.pred)
+dat=data.frame(
+actual=valid.df$Personal.Loan,
+         predicted=logit.reg.pred)
+
+
+head(dat)
+library(caret)
+yes_or_no=ifelse(dat$predicted>0.5,1,0)
+yes_or_no_actual=as.factor(dat$actual)
+yes_or_no_class=as.factor(yes_or_no)
+confusionMatrix(yes_or_no_class,
+                yes_or_no_actual)
+library(gains)
+gain=gains(valid.df$Personal.Loan,
+           logit.reg.pred,
+         groups=length(logit.reg.pred))
+plot(c(0,gain$cume.pct.of.total*
+          sum(valid.df$Personal.Loan))
+     ~c(0,gain$cume.obs),
+     xlab="# cases",ylab="Cumulative",
+     main="",type="l")
+lines(c(0,sum(valid.df$Personal.Loan))
+      ~c(0,dim(valid.df)[1]),type="l")
+
+gain=gains(valid.df$Personal.Loan,
+           logit.reg.pred)
+heights=gain$mean.resp/
+        mean(valid.df$Personal.Loan)
+midpoints=barplot(heights,
+        names.arg=gain$depth,
+        ylim=c(0,9),xlab="Percentile",
+        ylab="Mean Response",
+        main="Decile-wise lift chart")
+text(midpoints,heights+0.5,
+     labels=round(heights,1),cex=0.8)
+
+logit1.reg.pred=
+predict(logit1.reg,
+        valid.df[,-c(1,2,7,8,9)],
+                type="response")
+head(logit1.reg.pred)
+dat1=data.frame(
+actual=valid.df$Personal.Loan,
+        predicted=logit1.reg.pred)
+head(dat1)
+yes_or_no1=ifelse(dat1$predicted>0.5,
+                  1,0)
+yes_or_no1_actual=as.factor(
+        dat1$actual)
+yes_or_no1_class=as.factor(yes_or_no1)
+confusionMatrix(yes_or_no1_class,
+        yes_or_no1_actual)
+
+library(pROC)
+r=roc(dat1$actual,dat1$predicted)
+plot.roc(r)
+auc(r)
+
+
+gain1=gains(valid.df$Personal.Loan,
+            logit1.reg.pred,groups=10)
+plot(c(0,gain1$cume.pct.of.total*
+         sum(valid.df$Personal.Loan))
+     ~c(0,gain1$cume.obs),
+     xlab="# cases",
+     ylab="Cumulative",
+     main="",type="l")
+lines(c(0,sum(valid.df$Personal.Loan))
+     ~c(0,dim(valid.df)[1]),type="l")
+heights1=gain1$mean.resp/
+        mean(valid.df$Personal.Loan)
+midpoints1=barplot(heights1,
+        names.arg=gain1$depth,
+        ylim=c(0,9),xlab="Percentile",
+        ylab="Mean Response",
+        main="Decile-wise lift chart")
+text(midpoints1,heights1+0.5,
+     labels=round(heights1,1),cex=0.8)
+ 
+
+logit.reg.bwd=step(logit.reg,
+                   method="backward")
+summary(logit.reg.bwd)
+logit.reg.fwd=step(logit.reg,
+                   method="forward")
+summary(logit.reg.fwd)
